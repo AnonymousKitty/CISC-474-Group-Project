@@ -58,11 +58,91 @@ def observation(grid: np.ndarray, agent_pos: Optional[int] = None, enemies: Opti
 
 def reward(info: dict) -> float:
     """
-    Reward function remains unchanged.
+    Function to calculate the reward for the current step based on the state information.
+
+    The info dictionary has the following keys:
+    - enemies (list): list of `Enemy` objects. Each Enemy has the following attributes:
+        - x (int): column index,
+        - y (int): row index,
+        - orientation (int): orientation of the agent (LEFT = 0, DOWN = 1, RIGHT = 2, UP = 3),
+        - fov_cells (list): list of integer tuples indicating the coordinates of cells currently observed by the agent,
+    - agent_pos (int): agent position considering the flattened grid (e.g. cell `(2, 3)` corresponds to position `23`),
+    - total_covered_cells (int): how many cells have been covered by the agent so far,
+    - cells_remaining (int): how many cells are left to be visited in the current map layout,
+    - coverable_cells (int): how many cells can be covered in the current map layout,
+    - steps_remaining (int): steps remaining in the episode.
+    - new_cell_covered (bool): if a cell previously uncovered was covered on this step
+    - game_over (bool) : if the game was terminated because the player was seen by an enemy or not
     """
-    new_cell_bonus = 10 if info["new_cell_covered"] else 0
-    coverage_bonus = 5 * (info["total_covered_cells"] / info["coverable_cells"])
-    steps_penalty = -0.1 * (info["coverable_cells"] - info["total_covered_cells"])
-    caught_penalty = -100 if info["game_over"] else 0
+    enemies = info["enemies"]
+    agent_pos = info["agent_pos"]
+    total_covered_cells = info["total_covered_cells"]
+    cells_remaining = info["cells_remaining"]
+    coverable_cells = info["coverable_cells"]
+    steps_remaining = info["steps_remaining"]
+    new_cell_covered = info["new_cell_covered"]
+    game_over = info["game_over"]
+    grid_size = 10
     
-    return new_cell_bonus + coverage_bonus + steps_penalty + caught_penalty
+    # Track visited cells (initialize if not present)
+    if not hasattr(reward, 'visited_cells'):
+        reward.visited_cells = set()
+    if not hasattr(reward, 'last_position'):
+        reward.last_position = None
+    
+    # Current cell position
+    current_cell = agent_pos
+    
+    # 1. Exploration incentives
+    exploration_bonus = 20 if new_cell_covered else 0
+    
+    # 2. Coverage progress (scaled by remaining cells)
+    coverage_bonus = 15 * (total_covered_cells / coverable_cells)
+    
+    # 3. Enemy avoidance (more nuanced distance calculation)
+    min_enemy_dist = min(
+        [abs(agent_pos - (e.y * grid_size + e.x)) for e in enemies],  # Fixed position calculation
+        default=grid_size * 2
+    )
+    danger_penalty = -8 * (1 - min(min_enemy_dist / (grid_size * 1.5), 1))
+    
+    # 4. Backtracking penalty (new)
+    backtrack_penalty = 0
+    if reward.last_position is not None:
+        if current_cell in reward.visited_cells:
+            # Penalize revisiting cells, with increasing penalty for frequent revisits
+            revisit_count = info.get('revisit_counts', {}).get(current_cell, 0)
+            backtrack_penalty = -2 * (1 + revisit_count * 0.5)  # -2, -3, -4.5, etc.
+    
+    # 5. Time pressure (adjusted)
+    steps_penalty = -0.1 * (coverable_cells - total_covered_cells)
+    
+    # 6. Catastrophic failure
+    failure_penalty = -250 if game_over else 0
+    
+    # 7. Movement encouragement (adjusted)
+    movement_bonus = 1.0 if info.get("agent_moved", True) else 0
+    
+    # 8. Unique coverage bonus (new)
+    unique_coverage_bonus = 0
+    if new_cell_covered:
+        reward.visited_cells.add(current_cell)
+        unique_coverage_bonus = 5 * (1 - len(reward.visited_cells)/coverable_cells)
+    
+    # Composite reward
+    total_reward = (
+        exploration_bonus +
+        coverage_bonus +
+        danger_penalty +
+        backtrack_penalty +
+        steps_penalty +
+        failure_penalty +
+        movement_bonus +
+        unique_coverage_bonus
+    )
+    
+    # Update last position
+    reward.last_position = current_cell
+    
+    # Clip to reasonable range
+    return np.clip(total_reward, -15, 25)

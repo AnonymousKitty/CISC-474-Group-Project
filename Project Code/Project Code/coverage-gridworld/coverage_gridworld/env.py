@@ -471,7 +471,7 @@ class CoverageGridworld(gym.Env):
             self.__print_game_status("TIME IS OVER!")
             terminated = True
         elif self.game_over:
-            self.__print_game_status("GAME OVER!")
+            # self.__print_game_status("GAME OVER!")
             terminated = True
 
         # creates info dictionary with extra state information
