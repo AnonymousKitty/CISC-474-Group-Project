@@ -468,7 +468,7 @@ class CoverageGridworld(gym.Env):
             self.__print_game_status("VICTORY!")
             terminated = True
         elif self.steps_remaining <= 0:
-            self.__print_game_status("TIME IS OVER!")
+            #self.__print_game_status("TIME IS OVER!")
             terminated = True
         elif self.game_over:
             # self.__print_game_status("GAME OVER!")
