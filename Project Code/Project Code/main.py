@@ -102,12 +102,12 @@ class SmartCoverageAgent:
         self.q_table = {}
         
         # Dynamic learning parameters
-        self.learning_rate = 0.7
+        self.learning_rate = 0.1
         self.min_learning_rate = 0.01
         self.discount_factor = 0.95
         self.exploration_rate = 1.0
         self.min_exploration = 0.01
-        self.exploration_decay = 0.9995
+        self.exploration_decay = 0.95
         
         # Reward normalization
         self.reward_memory = deque(maxlen=100)
@@ -207,7 +207,7 @@ for episode in range(1, 1001):
         total_reward += reward
         
         # Optional: Slow down for visualization
-        time.sleep(0.05)
+        #time.sleep(0.01)
         
     performance_history.append(total_reward)
     
