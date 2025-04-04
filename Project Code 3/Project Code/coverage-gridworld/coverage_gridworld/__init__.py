@@ -1,6 +1,7 @@
 from gymnasium.envs.registration import register
 from coverage_gridworld.env import CoverageGridworld
-
+from coverage_gridworld.map_generator import generate_valid_map
+import numpy as np
 register(
     id="standard",
     entry_point="coverage_gridworld:CoverageGridworld"
@@ -172,5 +173,25 @@ register(
     entry_point="coverage_gridworld:CoverageGridworld",
     kwargs={
         "predefined_map_list": maps
+    }
+)
+
+training_maps = []
+for i in range(100):
+    grid, start = generate_valid_map(size=10, max_enemies=5, corridor_width=1, open_area_chance=0.3)
+    #print(np.shape(grid))
+    training_maps.append(list(grid))
+    training_maps.append(None)
+    training_maps.append(None)
+    grid, start = generate_valid_map(size=10, max_enemies=5, corridor_width=1, open_area_chance=0)
+    #print(np.shape(grid))
+    training_maps.append(list(grid))
+    training_maps.append(None)
+
+register(
+    id="training_maps",   # very hard difficulty
+    entry_point="coverage_gridworld:CoverageGridworld",
+    kwargs={
+        "predefined_map_list": training_maps
     }
 )

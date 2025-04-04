@@ -224,7 +224,7 @@ class CoverageGridworld(gym.Env):
         """
         if self.predefined_map_list is not None:
             for i, map in enumerate(self.predefined_map_list):
-                if np.shape(map) != (self.grid_size, self.grid_size):
+                if np.shape(map) != (self.grid_size, self.grid_size) and map is not None:
                     print(f"Invalid map dimensions for map with index {i} in list! "
                           f"Use a valid map or try random map generation.")
                     exit(1)
