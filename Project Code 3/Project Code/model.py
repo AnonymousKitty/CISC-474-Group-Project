@@ -87,9 +87,9 @@ maps = [
 # Parallel environments for training
 do_training = True
 if do_training:
-    vec_env = make_vec_env("safe", n_envs=1)
+    vec_env = make_vec_env("all_maps", n_envs=32)
     model = DQN("MlpPolicy", vec_env, learning_rate=0.0005, learning_starts=10000, gamma=0.8, exploration_fraction=0.95, exploration_final_eps=0.1, verbose=1, tensorboard_log="./tensorboard/")
-    model.learn(total_timesteps=10000, tb_log_name="dqn_run")
+    model.learn(total_timesteps=1500000, tb_log_name="dqn_run")
     model.save("5x5BasicReward")
 
 

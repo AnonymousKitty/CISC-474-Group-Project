@@ -81,7 +81,9 @@ def observation(grid: np.ndarray):
         #Find the Agent Tile on the actual map
         agent_pos = np.argwhere(id_grid == 3)
         if len(agent_pos) == 0:
-            raise ValueError("AGENT NOT FOUND GG")
+            obs = np.full((5, 5), 2)
+            return obs.flatten()
+        
         
         agentx, agenty = agent_pos[0]
 
@@ -104,6 +106,8 @@ def observation(grid: np.ndarray):
                 obs[r,c] = id_grid[globx,globy]
             else:
                 obs[r,c] = 2
+
+
     
     return obs.flatten()
 
