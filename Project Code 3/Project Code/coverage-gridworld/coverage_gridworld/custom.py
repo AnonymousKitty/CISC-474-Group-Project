@@ -36,7 +36,7 @@ COLOR_TO_ID = {
     LIGHT_RED: 6
 }
 
-OBSERVATION_CHOICE = 1  # 1 or 2
+OBSERVATION_CHOICE = 2  # 1 or 2
 REWARD_CHOICE = 1   # 1, 2, or 3
 
 def observation_space(env: gym.Env) -> gym.spaces.Space:

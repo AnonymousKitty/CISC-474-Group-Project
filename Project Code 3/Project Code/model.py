@@ -70,7 +70,7 @@ maps = [
     ]
 ]
 
-test_path = "./test_1_1"
+test_path = "./test_2_1"
 os.makedirs(test_path, exist_ok=True)
 
 
@@ -186,7 +186,7 @@ if do_training:
     vec_env = make_vec_env("standard", n_envs=32)
     #print(vec_env.observation_space)
     model = DQN("MlpPolicy", vec_env, learning_rate=0.0005, learning_starts=10000, gamma=0.95, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, tensorboard_log="./tensorboard/")
-    total_timesteps = 100000000
+    total_timesteps = 10000000
     pause_eval_callback = PauseAndEvalCallback(test_path, eval_freq=total_timesteps//1000)
     model.learn(total_timesteps=total_timesteps, callback=pause_eval_callback, tb_log_name="dqn_run")
     model.save(test_path + "/model")
