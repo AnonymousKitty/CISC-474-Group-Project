@@ -36,32 +36,40 @@ COLOR_TO_ID = {
     LIGHT_RED: 6
 }
 
+USE_CNN = True
+
 def observation_space(env: gym.Env) -> gym.spaces.Space:
     """
     Observation space from Gymnasium (https://gymnasium.farama.org/api/spaces/)
     """
-    # The grid has (10, 10, 3) shape and can store values from 0 to 255 (uint8). To use the whole grid as the
-    # observation space, we can consider a MultiDiscrete space with values in the range [0, 256).
-    cell_values = np.ones(shape = (env.grid.shape[0], env.grid.shape[1])) * 7
+    if USE_CNN == False:
+        # The grid has (10, 10, 3) shape and can store values from 0 to 255 (uint8). To use the whole grid as the
+        # observation space, we can consider a MultiDiscrete space with values in the range [0, 256).
+        cell_values = np.ones(shape = (env.grid.shape[0], env.grid.shape[1])) * 7
 
-    # if MultiDiscrete is used, it's important to flatten() numpy arrays!
-    #print(cell_values.flatten())
-    return gym.spaces.MultiDiscrete(cell_values.flatten())
+        # if MultiDiscrete is used, it's important to flatten() numpy arrays!
+        #print(cell_values.flatten())
+        return gym.spaces.MultiDiscrete(cell_values.flatten())
+    elif USE_CNN:
+        return gym.spaces.Box(low=0, high=255, shape=(env.grid.shape[2], env.grid.shape[0], env.grid.shape[1]), dtype=np.uint8)
 
 
 def observation(grid: np.ndarray):
     """
     Function that returns the observation for the current state of the environment.
     """
-    # If the observation returned is not the same shape as the observation_space, an error will occur!
-    # Make sure to make changes to both functions accordingly.
-    id_grid = np.zeros(shape = (grid.shape[0], grid.shape[1]))
-    for x in range(grid.shape[0]):
-        for y in range(grid.shape[1]):
-            id_grid[x, y] = COLOR_TO_ID[tuple(grid[x, y])]
+    if USE_CNN == False:
+        # If the observation returned is not the same shape as the observation_space, an error will occur!
+        # Make sure to make changes to both functions accordingly.
+        id_grid = np.zeros(shape = (grid.shape[0], grid.shape[1]))
+        for x in range(grid.shape[0]):
+            for y in range(grid.shape[1]):
+                id_grid[x, y] = COLOR_TO_ID[tuple(grid[x, y])]
 
 
-    return id_grid.flatten()
+        return id_grid.flatten()
+    elif USE_CNN:
+        return np.transpose(grid, (2, 0, 1))
 
 
 def reward(info: dict) -> float:
@@ -104,7 +112,7 @@ def reward(info: dict) -> float:
     current_cell = agent_pos
     
     # 1. Exploration incentives
-    exploration_bonus = 10 if new_cell_covered else -1
+    exploration_bonus = 5 if new_cell_covered else -1
     
     
 
@@ -112,7 +120,7 @@ def reward(info: dict) -> float:
     #steps_penalty = -2
     
     # 6. Catastrophic failure
-    failure_penalty = -250 if game_over else 0
+    failure_penalty = -50 if game_over else 0
     
     # 7. Movement encouragement (adjusted)
     #movement_bonus = 1.0 if current_cell else 0
