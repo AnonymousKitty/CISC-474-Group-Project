@@ -4,5 +4,5 @@ setup(
     name="coverage_gridworld",
     version="1.0",
     author="Mateus Karvat",
-    install_requires=["gymnasium", "pygame"],
+    install_requires=["gymnasium", "pygame", "stable-baselines3[extra]"],
 )
