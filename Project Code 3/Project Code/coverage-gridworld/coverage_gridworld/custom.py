@@ -36,29 +36,26 @@ COLOR_TO_ID = {
     LIGHT_RED: 6
 }
 
-USE_CNN = True
+OBSERVATION_CHOICE = 1  # 1 or 2
+REWARD_CHOICE = 1   # 1, 2, or 3
 
 def observation_space(env: gym.Env) -> gym.spaces.Space:
     """
     Observation space from Gymnasium (https://gymnasium.farama.org/api/spaces/)
     """
-    if USE_CNN == False:
-        # The grid has (10, 10, 3) shape and can store values from 0 to 255 (uint8). To use the whole grid as the
-        # observation space, we can consider a MultiDiscrete space with values in the range [0, 256).
+    if OBSERVATION_CHOICE == 1:
         cell_values = np.ones(shape = (env.grid.shape[0], env.grid.shape[1])) * 7
-
-        # if MultiDiscrete is used, it's important to flatten() numpy arrays!
-        #print(cell_values.flatten())
         return gym.spaces.MultiDiscrete(cell_values.flatten())
-    elif USE_CNN:
-        return gym.spaces.Box(low=0, high=255, shape=(env.grid.shape[2], env.grid.shape[0], env.grid.shape[1]), dtype=np.uint8)
+    elif OBSERVATION_CHOICE == 2:
+        cell_values = np.ones(shape = (5, 5)) * 7
+        return gym.spaces.MultiDiscrete(cell_values.flatten())
 
 
 def observation(grid: np.ndarray):
     """
     Function that returns the observation for the current state of the environment.
     """
-    if USE_CNN == False:
+    if OBSERVATION_CHOICE == 1:
         # If the observation returned is not the same shape as the observation_space, an error will occur!
         # Make sure to make changes to both functions accordingly.
         id_grid = np.zeros(shape = (grid.shape[0], grid.shape[1]))
@@ -68,8 +65,33 @@ def observation(grid: np.ndarray):
 
 
         return id_grid.flatten()
-    elif USE_CNN:
-        return np.transpose(grid, (2, 0, 1))
+    elif OBSERVATION_CHOICE == 2:
+        id_grid = np.zeros(shape = (10, 10))
+        for x in range(10):
+            for y in range(10):
+                id_grid[x, y] = COLOR_TO_ID[tuple(grid[x, y])]
+        
+        agent_pos = np.argwhere(id_grid == 3)
+        if len(agent_pos) == 0:
+            obs = np.full((5, 5), 2)
+            return obs.flatten()
+        agentx, agenty = agent_pos[0]
+        obs = np.zeros((5, 5), dtype=np.uint8)
+        counter = 0
+        for r in range(5):
+            for c in range(5):
+                globx = agentx + (r - 2)
+                globy = agenty + (c - 2)
+            
+                if 0 <= globx < 10 and 0 <= globy < 10:
+                    obs[r,c] = id_grid[globx,globy]
+                else:
+                    obs[r,c] = 2
+
+
+        
+        return obs.flatten()
+
 
 
 def reward(info: dict) -> float:
@@ -102,39 +124,80 @@ def reward(info: dict) -> float:
     # IMPORTANT: You may design a reward function that uses just some of these values. Experiment with different
     # rewards and find out what works best for the algorithm you chose given the observation space you are using
 
-    # Track visited cells (initialize if not present)
-    if not hasattr(reward, 'visited_cells'):
-        reward.visited_cells = set()
-    if not hasattr(reward, 'last_position'):
-        reward.last_position = None
-    
-    # Current cell position
-    current_cell = agent_pos
-    
-    # 1. Exploration incentives
-    exploration_bonus = 5 if new_cell_covered else -1
-    
     
 
-    # 5. Time pressure (adjusted)
-    #steps_penalty = -2
-    
-    # 6. Catastrophic failure
-    failure_penalty = -50 if game_over else 0
-    
-    # 7. Movement encouragement (adjusted)
-    #movement_bonus = 1.0 if current_cell else 0
-    
+        
 
-    
-    # Composite reward
-    total_reward = (
-        exploration_bonus +
-        #steps_penalty +
-        failure_penalty# +
-        #movement_bonus
-    )
 
-    
-    # Clip to reasonable range
-    return total_reward#np.clip(total_reward, -15, 25)
+
+    if REWARD_CHOICE == 1:
+        return 1 if new_cell_covered else 0
+    elif REWARD_CHOICE == 2:
+        exploration_reward = 10 if new_cell_covered else 0
+        time_step_penalty = -1
+        failure_penalty = -steps_remaining if game_over else 0
+        return exploration_reward + time_step_penalty + failure_penalty
+    elif REWARD_CHOICE == 3:
+        # Track visited cells (initialize if not present)
+        if not hasattr(reward, 'visited_cells'):
+            reward.visited_cells = set()
+        if not hasattr(reward, 'last_position'):
+            reward.last_position = None
+
+        # Current cell position
+        current_cell = agent_pos
+        
+        # 1. Exploration incentives
+        exploration_bonus = 20 if new_cell_covered else 0
+        
+        # 2. Coverage progress (scaled by remaining cells)
+        coverage_bonus = 15 * (total_covered_cells / coverable_cells)
+        
+        # 3. Enemy avoidance (more nuanced distance calculation)
+        min_enemy_dist = min(
+            [abs(agent_pos - (e.y * 10 + e.x)) for e in enemies],  # Fixed position calculation
+            default=10 * 2
+        )
+        danger_penalty = -8 * (1 - min(min_enemy_dist / (10 * 1.5), 1))
+        
+        # 4. Backtracking penalty (new)
+        backtrack_penalty = 0
+        if reward.last_position is not None:
+            if current_cell in reward.visited_cells:
+                # Penalize revisiting cells, with increasing penalty for frequent revisits
+                revisit_count = info.get('revisit_counts', {}).get(current_cell, 0)
+                backtrack_penalty = -2 * (1 + revisit_count * 0.5)  # -2, -3, -4.5, etc.
+        
+        # 5. Time pressure (adjusted)
+        steps_penalty = -0.1 * (coverable_cells - total_covered_cells)
+        
+        # 6. Catastrophic failure
+        failure_penalty = -250 if game_over else 0
+        
+        # 7. Movement encouragement (adjusted)
+        movement_bonus = 1.0 if info.get("agent_moved", True) else 0
+        
+        # 8. Unique coverage bonus (new)
+        unique_coverage_bonus = 0
+        if new_cell_covered:
+            reward.visited_cells.add(current_cell)
+            unique_coverage_bonus = 5 * (1 - len(reward.visited_cells)/coverable_cells)
+        
+        # Composite reward
+        total_reward = (
+            exploration_bonus +
+            coverage_bonus +
+            danger_penalty +
+            backtrack_penalty +
+            steps_penalty +
+            failure_penalty +
+            movement_bonus +
+            unique_coverage_bonus
+        )
+        
+        # Update last position
+        reward.last_position = current_cell
+        
+        # Clip to reasonable range
+        return total_reward
+
