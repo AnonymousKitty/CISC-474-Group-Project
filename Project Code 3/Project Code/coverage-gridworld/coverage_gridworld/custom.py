@@ -1,5 +1,7 @@
 import numpy as np
 import gymnasium as gym
+import os
+import time
 
 """
 Feel free to modify the functions below and experiment with different environment configurations.
@@ -36,17 +38,22 @@ COLOR_TO_ID = {
     LIGHT_RED: 6
 }
 
+USE_CNN = False
+
 def observation_space(env: gym.Env) -> gym.spaces.Space:
     """
     Observation space from Gymnasium (https://gymnasium.farama.org/api/spaces/)
     """
-    # The grid has (10, 10, 3) shape and can store values from 0 to 255 (uint8). To use the whole grid as the
-    # observation space, we can consider a MultiDiscrete space with values in the range [0, 256).
-    cell_values = np.ones(shape = (env.grid.shape[0], env.grid.shape[1])) * 7
+    if USE_CNN == False:
+        # The grid has (10, 10, 3) shape and can store values from 0 to 255 (uint8). To use the whole grid as the
+        # observation space, we can consider a MultiDiscrete space with values in the range [0, 256).
+        cell_values = np.ones(shape = (5, 5)) * 7
 
-    # if MultiDiscrete is used, it's important to flatten() numpy arrays!
-    #print(cell_values.flatten())
-    return gym.spaces.MultiDiscrete(cell_values.flatten())
+        # if MultiDiscrete is used, it's important to flatten() numpy arrays!
+        #print(cell_values.flatten())
+        return gym.spaces.MultiDiscrete(cell_values.flatten())
+    elif USE_CNN:
+        return gym.spaces.Box(low=0, high=255, shape=(env.grid.shape[2], env.grid.shape[0], env.grid.shape[1]), dtype=np.uint8)
 
 
 def observation(grid: np.ndarray):
@@ -55,16 +62,53 @@ def observation(grid: np.ndarray):
     """
     # If the observation returned is not the same shape as the observation_space, an error will occur!
     # Make sure to make changes to both functions accordingly.
-    id_grid = np.zeros(shape = (grid.shape[0], grid.shape[1]))
-    for x in range(grid.shape[0]):
-        for y in range(grid.shape[1]):
-            id_grid[x, y] = COLOR_TO_ID[tuple(grid[x, y])]
+
+    #Agent should always be in the center
+
+    #Any Out of bounds tiles should be considered walls
+    if USE_CNN == True:
+        id_grid = np.zeros(shape = (5, 5))
+        for x in range(5):
+            for y in range(5):
+                id_grid[x, y] = COLOR_TO_ID[tuple(grid[x, y])]
+        
+        return id_grid.flatten()
+    else:
+        id_grid = np.zeros(shape = (10, 10))
+        for x in range(10):
+            for y in range(10):
+                id_grid[x, y] = COLOR_TO_ID[tuple(grid[x, y])]
+        #Find the Agent Tile on the actual map
+        agent_pos = np.argwhere(id_grid == 3)
+        if len(agent_pos) == 0:
+            raise ValueError("AGENT NOT FOUND GG")
+        
+        agentx, agenty = agent_pos[0]
+
+    #Create the 5x5 observation centered on agent
+    #Agent is always in the center,
+    # [][][][][]
+    # [][][][][]
+    # [][][][][]
+    # [][][][][]
+    # [][][][][]
+
+    obs = np.zeros((5, 5), dtype=np.uint8)
+    counter = 0
+    for r in range(5):
+        for c in range(5):
+            globx = agentx + (r - 2)
+            globy = agenty + (c - 2)
+        
+            if 0 <= globx < 10 and 0 <= globy < 10:
+                obs[r,c] = id_grid[globx,globy]
+            else:
+                obs[r,c] = 2
+    
+    return obs.flatten()
 
 
-    return id_grid.flatten()
-
-
-def reward(info: dict) -> float:
+def reward(info: dict) -> float:#
     """
     Function to calculate the reward for the current step based on the state information.
 
@@ -102,9 +146,10 @@ def reward(info: dict) -> float:
     
     # Current cell position
     current_cell = agent_pos
-    
+    exploration_bonus = 0
     # 1. Exploration incentives
-    exploration_bonus = 10 if new_cell_covered else -1
+    if new_cell_covered:
+        exploration_bonus = 1
     
     
 
@@ -112,7 +157,6 @@ def reward(info: dict) -> float:
     #steps_penalty = -2
     
     # 6. Catastrophic failure
-    failure_penalty = -250 if game_over else 0
     
     # 7. Movement encouragement (adjusted)
     #movement_bonus = 1.0 if current_cell else 0
@@ -121,9 +165,9 @@ def reward(info: dict) -> float:
     
     # Composite reward
     total_reward = (
-        exploration_bonus +
+        exploration_bonus
         #steps_penalty +
-        failure_penalty# +
+        #failure_penalty# +
         #movement_bonus
     )
 
